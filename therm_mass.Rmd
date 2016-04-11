@@ -1,0 +1,154 @@
+b---
+title: "Thermal mass"
+author: "S. Richter Walsh"
+date: "15 March 2016"
+output: html_document
+---
+
+# Set working directory.
+```{r}
+setwd("C:/Users/Patrick_2/Documents/MyDataSources")
+t_mass <- read.csv("MinT_diff.csv")
+names(t_mass) <- c("Observation", "Near", "Distant")
+```
+
+# Identify distributions of data at both < 1m (Near) and 5-10 m (Distant) proximities:
+
+```{r}
+library(ggplot2)
+qplot(x = Near, data = t_mass, binwidth = 1) +
+  scale_x_continuous(breaks = seq(-6, 27, 1)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+qplot(x = Distant, data = t_mass, binwidth = 1) +
+  scale_x_continuous(breaks = seq(-10, 20, 1)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+# Outliers pull the mean out to higher values. The median is a more robust staistic in this case. To reduce the effect of long-tailed data sets like this, omit extreme values to visualise the bulk of the data more clearly.
+
+qplot(x = Near, data = t_mass, binwidth = 1) + 
+  scale_x_continuous(limits = c(-5,11), breaks = seq(-5, 11, 1)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+qplot(x = Distant, data = t_mass, binwidth = 1) + 
+  scale_x_continuous(limits = c(-6,10), breaks = seq(-6, 10, 1)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+# The long-tailed, non-normally distributed < 1 m (Near) data set requires the use of the median as a more robust statistic for analysis. The 5-10 m (Distant) data set is closer to a normal distribution, with the difference between the mean and median being much lower.
+
+summary(t_mass)
+```
+
+
+# Next, an analysis of surface type on temperature minima is carried out:
+
+```{r}
+surface_diff <- read.csv("surface_difference..csv")
+summary(surface_diff)
+```
+
+# Check the distributions:
+
+```{r}
+qplot(x = grass, data = surface_diff, binwidth = 1) + 
+  scale_x_continuous(breaks = seq(-10, 30, 1)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+qplot(x = artificial, data = surface_diff, binwidth = 1) +
+  scale_x_continuous(breaks = seq(-10, 30, 1)) + 
+  scale_y_continuous(breaks = seq(0, 12, 1))
+```
+
+# The medians are more robust values to use when carrying out comparisons. The grass data set has a more normal distribution than the artificial data set. Extreme values pull the mean out in both data sets.
+
+```{r}
+# To create a grid of plots, store plots as variables then use the grid.arrange function.
+
+plot_1 <- qplot(x = Near, data = t_mass, binwidth = 1) + 
+  scale_x_continuous(breaks = seq(-6, 26, 2)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+plot_2 <- qplot(x = Distant, data = t_mass, binwidth = 1) +
+  scale_x_continuous(breaks = seq(-10, 19, 2)) + 
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+plot_3 <- qplot(x = grass, data = surface_diff, binwidth = 1) + 
+  scale_x_continuous(breaks = seq(-10, 30, 2)) +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+plot_4 <- qplot(x = artificial, data = surface_diff, binwidth = 1) +
+  scale_x_continuous(breaks = seq(-10, 30, 2)) + 
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+library("gridExtra", lib.loc="~/R/win-library/3.2")
+grid.arrange(plot_1, plot_2, plot_3, plot_4, ncol=2) 
+
+```
+
+# Histograms overlaid with kernel density curves:
+```{r}
+p1 <- ggplot(t_mass, aes(x = Near)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 0.3, colour = "black", fill = "white") + 
+  geom_density(alpha = .2, fill = "#FF6666") + 
+  scale_x_continuous(breaks = seq(-6, 26, 2))
+
+p2 <- ggplot(t_mass, aes(x = Distant)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 0.3, colour = "black", fill = "white") + 
+  geom_density(alpha = .2, fill = "#FF6666") + 
+  scale_x_continuous(breaks = seq(-10, 19, 2))
+
+grid.arrange(p1, p2, ncol=2)
+
+# Normality curves can be superimposed on histograms:
+
+ggplot(t_mass, aes(x = Near)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 0.3, colour = "black", fill = "white") + 
+  geom_density(aes(y = 0.045*..count..), colour = "black", adjust = 4)
+
+ggplot(t_mass, aes(x = Distant)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 0.3, colour = "black", fill = "white") + 
+  geom_density(aes(y = 0.045*..count..), colour = "black", adjust = 4)
+
+
+
+```
+
+# Use the qqnorm() function to compare observed quantiles with theroretical quantiles for normal distribution:
+```{r}
+par(mfrow = c(1,1))
+qqnorm(t_mass$Near)
+qqnorm(t_mass$Distant)
+qqnorm(surface_diff$grass)
+qqnorm(surface_diff$artificial)
+
+# The observed and theoretical quantiles should show a nearly linear positive relationship in normally distributed samples.
+
+# Further assessment of normality using the Shapiro-Wilk test:
+shapiro.test(t_mass$Near)
+shapiro.test(t_mass$Distant)
+shapiro.test(surface_diff$grass)
+shapiro.test(surface_diff$artificial)
+
+# p-value represents probability that the null is true: the sample is from a parametric population.
+
+```
+
+```{r}
+# Removing outliers changes the normality of the distributions. 
+no_out_prox <- read.csv("no_outliers_prox.csv")
+no_out_surf <- read.csv("no_outlers_surface.csv")
+
+qqnorm(no_out_prox$Near)
+qqnorm(no_out_prox$Distant)
+qqnorm(no_out_surf$grass)
+qqnorm(no_out_surf$artificial)
+
+shapiro.test(no_out_prox$Near)
+shapiro.test(no_out_prox$Distant)
+shapiro.test(no_out_surf$grass)
+shapiro.test(no_out_surf$artificial)
+```
+
+
+
+

@@ -1,0 +1,57 @@
+---
+title: "Thermal mass research."
+author: "S. Richter Walsh"
+date: "3 March 2016"
+output: html_document
+---
+
+
+```{r}
+setwd("C:/Users/Patrick_2/Documents/MyDataSources")
+MinT_diff_df <- read.csv("MinT_diff.csv")
+names(MinT_diff_df) <- c("Surface", "N", "D")
+
+summary(MinT_diff_df$N)
+summary(MinT_diff_df$D)
+
+grass <- MinT_diff_df[38:74,]
+art <- MinT_diff_df[1:37,]
+summary(grass)
+summary(art)
+```
+
+#Determine distribution of minimum temperature values at each proximity:
+
+```{r}
+par(mfrow = c(2,2))
+
+hist(MinT_diff_df$N, xlab = "Minimum temperature", main = "", col = "grey")
+
+hist(MinT_diff_df$D, xlab = "Minimum temperature", main = "", col = "grey")
+```
+
+#In-depth analyses:
+
+```{r}
+surface_analysis_df <- read.csv("surface_difference..csv")
+
+par(mfrow = c(1,2))
+
+boxplot(MinT_diff_df$N, MinT_diff_df$D, col = "grey", ylab = "Min. temperature", xlab = "Proximity", names = c(" < 1m", "5-10m"), cex.axis = 0.8, pch = 20)
+
+boxplot(surface_analysis_df$grass, surface_analysis_df$artificial, col = "grey", ylab = "Min. temperature", xlab = "Surface", names = c("Grass", "Artificial"), cex.axis = 0.8, pch = 20)
+
+library(ggplot2)
+
+ggplot(data=MinT_diff_df, aes(x=N, y=D)) + 
+  geom_point() + 
+  geom_smooth(method=lm) +
+  scale_x_continuous(breaks = seq(-10,30,2)) + 
+  scale_y_continuous(breaks = seq(-10,20,2)) +
+  xlab('< 1 m') + 
+  ylab('5-10 m')
+
+lm_thermal_mass <- lm(MinT_diff_df$D ~ MinT_diff_df$N)
+summary(lm_thermal_mass)
+```
+
