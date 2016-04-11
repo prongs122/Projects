@@ -1,0 +1,711 @@
+---
+title: "Udacity Problem Sets 3 & 4"
+author: "S. Richter Walsh"
+date: "27 March 2016"
+output: html_document
+---
+
+
+```{r}
+library(ggplot2)
+diamonds_df <- diamonds
+```
+
+# Create a histogram of all of the diamond prices in the dataset.
+```{r}
+ggplot(aes(x = price), data = diamonds_df) + 
+  geom_histogram(binwidth = 10, color = 'black', fill = "white") +
+  xlab('Diamond price') + 
+  ylab('Number of diamonds in sample')
+```
+
+# How many diamonds cost less than $500?
+```{r}
+diamonds_under_500 <- subset(diamonds_df, price < 500)
+diamonds_under_250 <- subset(diamonds_df, price < 250)
+diamonds_over_15000 <- subset(diamonds_df, price >= 15000)
+```
+
+```{r}
+ggplot(aes(x = price), data = diamonds_df) + 
+  geom_histogram(binwidth = 20, color = 'black', fill = "pink") +
+  xlab('Diamond price') + 
+  ylab('Number of diamonds in sample') +
+  scale_x_continuous(limits = c(0, 1500))
+
+```
+
+# Diamond prices by cut.
+```{r}
+ggplot(aes(x = price), data = diamonds_df) + 
+  geom_histogram(binwidth = 20, color = 'black', fill = "pink") +
+  xlab('Diamond price') + 
+  ylab('Number of diamonds in sample') +
+  facet_wrap(~cut, scales = "free_y")
+
+by(diamonds_df$price, diamonds_df$cut, summary)
+
+# scales = "free_y" function makes axes independent so clearer patterns can be seen.
+```
+
+# Diamond price per carat histogram.
+```{r}
+ggplot(aes(x = price/carat), data = diamonds_df) + 
+  geom_histogram(binwidth = 0.1, color = 'black', fill = "pink") +
+  xlab('Diamond price per carat') + 
+  ylab('Number of diamonds in sample') + 
+  scale_x_log10()
+
+```
+ 
+ # Boxplot EDA.
+```{r}
+ggplot(aes(x = price), data = diamonds_df) + 
+  geom_histogram(binwidth = 0.1, color = 'black', fill = "pink") +
+  xlab('Diamond price') + 
+  ylab('Number of diamonds in sample')
+
+# Use coord_cartesian() to get a closer look at the data without omitting any long-tailed data.
+
+ggplot(data = diamonds_df, aes(x = cut, y = price)) + 
+  geom_boxplot() +
+  ylab('Diamond price') +
+  xlab('Diamond cut') +
+  coord_cartesian(ylim = c(0, 7000)) +
+  scale_y_continuous(breaks = seq(0, 7000, 500))
+
+# What does a logarithmic transformation look like?
+
+ggplot(aes(x = price), data = diamonds_df) + 
+  geom_histogram(binwidth = 0.1, color = 'black', fill = "pink") +
+  xlab('Diamond price') + 
+  ylab('Number of diamonds in sample') +
+  scale_x_log10()
+
+```
+
+# Price per carat and color investigation.
+```{r}
+ggplot(data = diamonds_df, aes(x = color, y = price/carat)) + 
+    geom_boxplot() +
+    ylab('Diamond price per carat') +
+    xlab('Diamond color') +
+    coord_cartesian(ylim = c(0, 7000)) +
+    scale_y_continuous(breaks = seq(0, 7000, 500))
+
+```
+
+# Carat investigation using frequency polygons.
+```{r}
+ggplot(aes(x = carat, y = ..count.., data = diamonds_df) +
+  geom_freqpoly(aes(color = carat), binwidth=1) + 
+  scale_x_continuous(limits = c(0, 1000), breaks = seq(0, 1000, 50)) + 
+  xlab('Friend Count') + 
+  ylab('Percentage of users with that friend count')
+
+```
+
+# Lesson 4: Scatterplots.
+```{r}
+setwd("C:/Users/Patrick_2/Documents/MyDataSources")
+pf <- read.delim("pseudo_facebook (2).tsv")
+ggplot(aes(x = age, y = friend_count), data = pf) + 
+  geom_point() +
+  xlab('Age') +
+  ylab('Friend Count')
+
+# Remove ages < 13 and > 90 as these are uncertain data.
+
+ggplot(aes(x = age, y = friend_count), data = pf) + 
+  geom_point(alpha = 1/20) +
+  xlab('Age') +
+  ylab('Friend Count') +
+  scale_x_continuous(limits = c(13, 90), breaks = seq(13, 90, 2))
+
+```
+
+```{r}
+ggplot(aes(x = Canopy.index, y = Tmin.open...Tmin.canopy), data = canopy_df) + 
+  geom_point(alpha = 1/10) +
+  xlab('Canopy Index') +
+  ylab('Difference in temperature minimum') +
+  scale_x_continuous(breaks = c(5,15,25,35,45,55,65,75,85,95))
+
+# Add a regression line with 95% confidence interval.
+
+ggplot(data = canopy_df, aes(x = Canopy.index, y = Drange....Tmaxopen.Tminopen.....Tmaxcanopy.Tmincanopy.)) + 
+  geom_point(alpha = 1/10) + 
+  geom_smooth(method=lm) +
+  scale_x_continuous(breaks = c(5,15,25,35,45,55,65,75,85,95)) + 
+  xlab('Canopy Index') + 
+  ylab('Difference in range')
+
+
+```
+Lesson 3
+========================================================
+
+***
+
+### What to Do First?
+Notes: Set working directory and find data file.
+
+***
+
+### Pseudo-Facebook User Data
+Notes: Use uploader for .csv or .tsv format files.
+
+```{r Pseudo-Facebook User Data}
+setwd("C:/Users/Patrick_2/Documents/MyDataSources")
+pf <- read.delim("pseudo_facebook (2).tsv")
+```
+
+***
+
+### Histogram of Users' Birthdays
+Notes:
+
+```{r Histogram of Users\' Birthdays}
+install.packages('ggthemes', dependencies = TRUE) 
+library(ggthemes) 
+library(ggplot2)
+
+qplot(data = pf, x = dob_day) + scale_x_continuous(breaks=1:31)
+
+ggplot(aes(x = dob_day), data = pf) + 
+  geom_histogram(binwidth = 1) + 
+  scale_x_continuous(breaks = 1:31)
+```
+
+***
+
+#### What are some things that you notice about this histogram?
+Response:
+
+***
+
+### Moira's Investigation
+Notes:
+
+***
+
+### Estimating Your Audience Size
+Notes:
+
+***
+
+#### Think about a time when you posted a specific message or shared a photo on Facebook. What was it?
+Response:
+
+#### How many of your friends do you think saw that post?
+Response:
+
+#### Think about what percent of your friends on Facebook see any posts or comments that you make in a month. What percent do you think that is?
+Response:
+
+***
+
+### Perceived Audience Size
+Notes:
+
+***
+### Faceting
+Notes: Breaking one histogram of day of birth into 12 histograms of months.
+
+```{r Faceting}
+qplot(data = pf, x = dob_day) + 
+  scale_x_continuous(breaks = 1:31) + 
+  facet_wrap(~dob_month, ncol = 3)
+
+ggplot(aes(x=displ, y=hwy), data = mpg_df) + 
+  geom_point(color = "red", size = 2) +
+  geom_smooth() +
+  scale_y_continuous(breaks = seq(10,45,5)) +
+                       facet_wrap(~drv, scales='free_y', ncol = 2)
+
+ggplot(aes(x=displ, y=hwy), data = mpg_df) + 
+  geom_point(aes(color = drv), size = 2) +
+  geom_smooth(method=lm) +
+  scale_y_continuous(breaks = seq(10,45,5))
+
+```
+
+#### Let’s take another look at our plot. What stands out to you here?
+Response:
+
+***
+
+### Be Skeptical - Outliers and Anomalies
+Notes:
+
+***
+
+### Moira's Outlier
+Notes:
+#### Which case do you think applies to Moira’s outlier?
+Response:
+
+***
+
+### Friend Count
+Notes:
+
+#### What code would you enter to create a histogram of friend counts?
+
+```{r Friend Count}
+qplot(x = friend_count, data = pf)
+```
+
+#### How is this plot similar to Moira's first plot?
+Response:
+
+***
+
+### Limiting the Axes
+Notes:
+
+```{r Limiting the Axes}
+qplot(x = friend_count, data = pf, xlim = c(0, 1000))
+```
+
+### Exploring with Bin Width
+Notes:
+
+***
+
+### Adjusting the Bin Width
+Notes:
+```{r}
+qplot(x = friend_count, data = pf, binwidth = 25) +
+  scale_x_continuous(limits = c(0, 1000), breaks = seq(0, 1000, 50))
+
+```
+
+### Faceting Friend Count
+```{r Faceting Friend Count}
+# What code would you add to create a facet the histogram by gender?
+# Add it to the code below.
+qplot(x = friend_count, data = na.omit(pf), binwidth = 10) +
+  scale_x_continuous(limits = c(0, 1000), breaks = seq(0, 1000, 50)) +
+  facet_wrap(~gender, ncol = 2)
+```
+
+***
+
+### Omitting NA Values
+Notes:
+
+```{r Omitting NA Values}
+qplot(x = friend_count, data = na.omit(pf), binwidth = 10) +
+  scale_x_continuous(limits = c(0, 1000), breaks = seq(0, 1000, 50)) +
+  facet_wrap(~gender, ncol = 2)
+```
+
+***
+
+### Statistics 'by' Gender
+Notes:
+
+```{r Statistics \'by\' Gender}
+
+```
+
+#### Who on average has more friends: men or women?
+Response:
+
+#### What's the difference between the median friend count for women and men?
+Response:
+
+#### Why would the median be a better measure than the mean?
+Response:
+
+***
+
+### Tenure
+Notes:
+
+```{r Tenure}
+
+```
+
+***
+
+#### How would you create a histogram of tenure by year?
+
+```{r Tenure Histogram by Year}
+ggplot(aes(x = tenure), data = pf) + 
+   geom_histogram(binwidth = 30, color = 'black', fill = '#099DD9') 
+
+ggplot(aes(x = tenure/365), data = pf) + 
+  geom_histogram(binwidth = .25, color = 'black', fill = '#F79420')
+```
+
+
+```{r}
+ggplot(aes(x = tenure/365), data = pf) + 
+  geom_histogram(binwidth = .25, color = 'black', fill = '#F79420') +
+  scale_x_continuous(breaks = seq(0, 7, 1)) +
+  scale_y_continuous(breaks = seq(0, 15000,1000)) +
+  xlab('Number of years using Facebook') + 
+  ylab('Number of users in sample')
+
+```
+
+
+***
+
+### Labeling Plots
+Notes:
+
+```{r Labeling Plots}
+ggplot(aes(x = age), data = pf) + 
+  geom_histogram(binwidth = 1, color = 'black', fill = '#F79420') +
+  scale_x_continuous(breaks = seq(-15, 130, 5)) +
+  scale_y_continuous(breaks = seq(0, 5500,500)) +
+  xlab('Facebook user ages') + 
+  ylab('Number of users in sample')
+
+```
+
+***
+
+### User Ages
+Notes:
+
+```{r User Ages}
+
+```
+
+#### What do you notice?
+Response:
+
+***
+
+### The Spread of Memes
+Notes:
+
+***
+
+### Lada's Money Bag Meme
+Notes:
+
+***
+
+### Transforming Data
+Notes:
+```{r}
+# Transforming data using logarithmic transformation.
+
+qplot(x = friend_count, data = pf)
+summary(log10(pf$friend_count + 1))
+# This addition of +1 removes the infinities.
+
+# One can also perform square root transformations:
+summary(sqrt(pf$friend_count))
+qplot(x = friend_count, data = pf) + scale_y_log10()
+
+
+
+```
+
+
+***
+
+### Add a Scaling Layer
+Notes:
+
+```{r Add a Scaling Layer}
+
+```
+
+***
+
+
+### Frequency Polygons
+
+```{r Frequency Polygons}
+ggplot(aes(x = friend_count, y = ..count../sum(..count..)), data = subset(pf, !is.na(gender))) + 
+  geom_freqpoly(aes(color = gender), binwidth=10) + 
+  scale_x_continuous(limits = c(0, 1000), breaks = seq(0, 1000, 50)) + 
+  xlab('Friend Count') + 
+  ylab('Percentage of users with that friend count')
+
+```
+
+***
+
+### Likes on the Web
+Notes:
+
+```{r Likes on the Web}
+by(pf$www_likes, pf$gender, sum)
+```
+
+
+***
+
+### Box Plots
+Notes:
+
+```{r Box Plots}
+ggplot(data = na.omit(pf), aes(x = gender, y = friend_count)) + geom_boxplot(aes(colour = gender))
+```
+
+#### Adjust the code to focus on users who have friend counts between 0 and 1000.
+
+```{r}
+ggplot(data = na.omit(pf), aes(x = gender, y = friend_count)) + geom_boxplot(aes(colour = gender)) + coord_cartesian(ylim = c(0, 1000)) + ylab("Friend count")
+
+# The coord_cartesian function allows you to focus on a specific range WITHOUT removing data which could affect the medians etc. 
+
+```
+
+***
+
+### Box Plots, Quartiles, and Friendships
+Notes:
+
+```{r Box Plots, Quartiles, and Friendships}
+
+```
+
+#### On average, who initiated more friendships in our sample: men or women?
+Response:
+#### Write about some ways that you can verify your answer.
+Response:
+```{r Friend Requests by Gender}
+
+```
+
+Response:
+
+***
+
+### Getting Logical
+Notes:
+
+```{r Getting Logical}
+
+```
+
+Response:
+
+***
+
+### Analyzing One Variable
+Reflection:
+
+***
+
+Click **KnitHTML** to see all of your hard work and to have an html
+page of this lesson, your answers, and your notes!
+
+# Transform friend_count using the square root function.
+```{r}
+ggplot(aes(x = age, y = friend_count), data = pf) + geom_point(alpha = 1/20) + 
+  scale_x_continuous(breaks = seq(13,90,5)) +
+  coord_trans(y = "sqrt") 
+
+ggplot(aes(x = age, y = friend_count), data = pf) + geom_point(alpha = 1/20) + 
+  xlim(13,90) +
+  coord_trans(y = "sqrt") 
+
+# coord_trans() can also be used to do log10 transformations: plot + coord_trans(y = "sqrt").
+
+```
+
+```{r}
+library(dplyr)
+age_groups <- group_by(pf, age)
+pf.fc_by_age <- summarise(age_groups,
+                          friend_count_mean = mean(friend_count),
+                          friend_count_median = median(friend_count),
+                          n = n())
+
+pf.fc_by_age <- arrange(pf.fc_by_age, age)
+head(pf.fc_by_age)
+
+# To create a line graph, use geom_line() function.
+
+ggplot(aes(x = age, y = friend_count_mean), data = pf.fc_by_age) +
+  geom_line(color = "red") +
+  ylab("Mean friend count") +
+  xlab("Age") +
+  scale_x_continuous(breaks = seq(13, 120,10)) +
+                       
+```
+
+```{r}
+# Overlay plots with summaries.
+
+# First, create plot for which the overlay is to be applied.
+
+ggplot(aes(x = age, y = friend_count), data = pf) + geom_point(alpha = 1/20, position = position_jitter(h = 0), color = "orange") + 
+  xlim(13, 90) +
+  coord_trans(y = "sqrt") 
+
+# Then add the overlay:
+
+ggplot(aes(x = age, y = friend_count), data = pf) + geom_point(alpha = 1/20, position = position_jitter(h = 0), color = "orange") + 
+  xlim(13, 90) +
+  coord_trans(y = "sqrt") +
+  geom_line(stat = "summary", fun.y = mean)
+
+```
+
+```{r}
+# Correlations. Look up the documentation for cor.test.
+
+?cor.test
+
+# To carry out a Pearson's product moment or Spearman rank test:
+
+cor.test(pf$age, pf$friend_count, method = "pearson")
+
+# Let's remove the ages which carry uncertainity regarding data quality. cor.test uses Pearson's by default.
+
+with(subset(pf, age <= 70), cor.test(age, friend_count))
+with(subset(pf, age <= 70), cor.test(age, friend_count, method = "spearman"))
+
+# A meaningful correlation is >= 0.3 or -0.3.
+
+```
+
+```{r}
+# Create a scatterplot of likes_received (y)
+# vs. www_likes_received (x). Use any of the
+# techniques that you've learned so far to
+# modify the plot.
+
+ggplot(aes(x = www_likes_received, y = likes_received), data = pf) + geom_point(color = "yellow")
+
+# Remove outliers by using data within the 95% quantile.
+
+ggplot(aes(x = www_likes_received, y = likes_received), data = pf) + geom_point(color = "yellow") +
+  xlim(0, quantile(pf$www_likes_received, 0.95)) +
+  ylim(0, quantile(pf$likes_received, 0.95)) +
+  geom_smooth(method = 'lm', color = "red")
+
+plot(pf$www_likes_received, pf$likes_received) + 
+  xlab("FB likes received from www") + 
+  ylab("FB likes received") +
+  
+cor.test(pf$www_likes_received, pf$likes_received, method = "pearson")
+
+```
+
+```{r}
+install.packages("alr3", dependencies = TRUE)
+
+library(ggplot2)
+
+ggplot(aes(x = Month, y = Temp), data = soil_T_df) + geom_point()
+
+# Convert month to year on x axis:
+
+ggplot(aes(x = Month/12, y = Temp), data = soil_T_df) + 
+  geom_point() +
+  ylab("Soil temperature") +
+  xlab("Year") +
+  scale_x_continuous(breaks = seq(0,20,1)) +
+  scale_y_continuous(breaks = seq(-10, 30, 5)) +
+  geom_smooth(method = lm)
+
+cor.test(soil_T_df$Month, soil_T_df$Temp, method = "pearson")
+
+```
+
+```{r}
+# Lesson 4 problem set.
+
+ggplot(aes(x = x, y = price), data = diamonds) + 
+  geom_point()
+
+cor.test(diamonds$x, diamonds$price, method = "pearson")
+cor.test(diamonds$y, diamonds$price, method = "pearson")
+cor.test(diamonds$z, diamonds$price, method = "pearson")
+
+ggplot(aes(x = depth, y = price), data = diamonds) + 
+  geom_point(alpha = 1/100) +
+  scale_x_continuous(breaks = seq(40, 80, 2))
+
+cor.test(diamonds$depth, diamonds$price, method = "pearson")
+  
+ggplot(aes(x = carat, y = price), data = diamonds) + 
+  geom_point(alpha = 1/100) +
+  xlim(0, quantile(diamonds$carat, 0.99)) +
+  ylim(0, quantile(diamonds$price, 0.99))
+
+cor.test(diamonds$carat, diamonds$price, method = "pearson")
+
+# Scatter plot of price vs. volume(x*y*z)
+
+ggplot(aes(x = x*y*z, y = price), data = diamonds) + 
+  geom_point()
+
+# Focus on the bulk of the data and use alpha to create transparency.
+  
+ggplot(aes(x = x*y*z, y = price), data = diamonds) + 
+  geom_point(alpha = 1/100, color = "orange") +
+  xlim(0, 500)
+
+```
+
+# Problem set:
+
+# Create a histogram of diamond prices. Facet by colour and use cut to colour the histogram bars.
+
+```{r}
+ggplot(diamonds_df, aes(price, fill = cut)) + 
+  geom_histogram(binwidth = 0.2) +
+  facet_wrap(~color, scales = "free_y") + 
+  scale_x_log10() +
+  ylab("Total Count") +
+  xlab("Diamond Price") +
+  ggtitle("Distribution of diamond prices for different diamond colours and cuts")
+  
+
+ggplot(diamonds, aes(clarity, fill = cut)) + geom_bar()
+
+```
+
+# Create a scatterplot of diamond price vs.table and color the points by the cut of the diamond.
+
+```{r}
+ggplot(diamonds_df, aes(x = table, y = price, color = cut)) +
+         geom_jitter() +
+  coord_cartesian(xlim = c(50, 80)) +
+  scale_x_continuous(breaks = seq(50,80,2))
+
+ggplot(diamonds_df, aes(x = table, y = price)) +
+         geom_jitter(alpha = 1/20) +
+  facet_wrap(~cut, scales = "free_x")
+
+```
+
+# Create a scatterplot of diamond price vs.volume (x * y * z) and color the points by the clarity of diamonds. Use scale on the y-axis to take the log10 of price. You should also omit the top 1% of diamond volumes from the plot.
+```{r}
+
+# Create a new variable "volume" in the diamonds data frame.
+diamonds_df$volume <- with(diamonds_df, x*y*z)
+
+ggplot(diamonds_df, aes(x = x*y*z, y = price, color = clarity)) + 
+  geom_point() +
+  scale_y_log10() +
+  xlim(0, quantile(diamonds_df$volume, 0.99)) +
+  xlab("Diamond Volume") +
+  ylab("Diamond Price")
+
+```
+
+# Create a scatter plot of the price/carat ratio of diamonds. The variable x should be assigned to cut. The points should be colored by diamond color, and the plot should be faceted by clarity.
+```{r}
+# Create new variable "pc_ratio" in diamonds dataframe.
+diamonds_df$pc_ratio <- with(diamonds_df, price/carat)
+
+ggplot(diamonds_df, aes(x = cut, y = pc_ratio, color = color)) +
+  facet_wrap(~clarity)
+
+```
+
+
