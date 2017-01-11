@@ -1,0 +1,296 @@
+---
+title: "IMDB Movie Analysis"
+author: "S.  Walsh"
+date: "09 December 2016"
+output: html_document
+---
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(reshape2)
+library(stringr)
+library(RCurl)
+library(XML)
+
+setwd("~/Documents/Portfolio")
+
+movies <- read.csv("movie_metadata.csv", header = T, stringsAsFactors = F)
+movies <- movies[,-29]
+glimpse(movies)
+
+```
+
+
+## The first step is to clean the data. There are duplicate movies contained within the dataset which need to be removed in order to tackle part 1 of this report. We have data from 1916 to 2016 and can group observations by title year. The duplicates need to be checked to determine whether the data in each copy is exactly the same. Use stringr to locate them.
+
+```{r, echo = TRUE}
+
+duplicates <- which(duplicated(movies$movie_title))  #Index the movies which are duplicated in the dataset. First instance is kept by default.
+movies2 <- movies[-duplicates, ]
+row.names(movies2) <- NULL
+
+#Quick check on duplicate homogeneity. Based on "The Avengers", it appears that the duplicates are homogeneous across all variables.
+
+check <- movies %>%
+ filter(str_detect(movie_title, "Avengers"))
+
+
+#Part 1: Identify the Top 10 actors and directors. Create appropriate data visualisations.
+
+top10 <- movies2%>%
+  arrange(desc(gross))%>%
+  select(movie_title, director_name, actor_1_name, gross)
+
+top10 <- top10[1:10, ]
+top10$actor_1_name <- factor(top10$actor_1_name)
+top10$director_name <- factor(top10$director_name)
+top10$movie_title <- factor(top10$movie_title)
+
+#Some directors have more than one movie featuring in the Top 10. Thus, the gross earnings are combined to give a total value.
+
+directors <- c("James Cameron", "Joss Whedon", "Christopher Nolan", "George Lucas", "Colin Trevorrow", "Andrew Adamson")
+
+#Top directors:
+
+ggplot(top10, aes(x = director_name, y = gross, fill = movie_title)) +
+  geom_bar(stat = "identity", colour = "black", alpha = 0.5) +
+  ylab("Gross movie earnings / $") +
+  xlab(" ") +
+  geom_hline(yintercept = 0) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_hue(name = "Movie") +
+  scale_x_discrete(limits = directors) +
+  ggtitle("Top Grossing Directors") +
+  theme(plot.title = element_text(size = 15, face = "bold"))
+
+
+#Top actors:
+
+actors <- c("Chris Hemsworth", "CCH Pounder", "Leonardo DiCaprio", "Bryce Dallas Howard", "Christian Bale", "Natalie Portman", "Harrison Ford", "Tom Hardy", "Rupert Everett")
+  
+ggplot(top10, aes(x = actor_1_name, y = gross, fill = movie_title)) +
+  geom_bar(stat = "identity", colour = "black", alpha = 0.5) +
+  ylab("Gross movie earnings / $") +
+  xlab(" ") +
+  geom_hline(yintercept = 0) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_hue(name = "Movie") +
+  scale_x_discrete(limits = actors) +
+  ggtitle("Top Grossing Actors") +
+  theme(plot.title = element_text(size = 15, face = "bold"))
+
+  
+```
+
+
+```{r, echo = TRUE}
+
+#Part 2: Analyse the distribution of gross earnings. Min, max and mean for all films between specified period. Remove the anomalous entry with year (200000) from the data for this step and continue to use the movies2 dataset with duplicates removed. Actual year should be 2012. This entry has a lot of error in it so it is best to remove it completely.
+
+anomaly_index <- which(movies2$title_year == 200000)
+movies2 <- movies2[-4906, ]
+
+#A quick look at the distribution of gross movie earnings.
+
+ggplot(movies2, aes(x = gross)) +
+  geom_histogram(colour = "black", fill = "lavender")
+
+
+#There is a strong positive skew to these data. The mean is less reliable than the median as a measure of expected gross earnings ($47 644 515 vs $25 043 962).
+
+summary(movies2$gross)
+
+#We need to plot mean, max and min gross earnings across the specified time. We can accomplish this using a line plot. The data are grouped by year with summary statistics added.
+
+grouped_gross <- movies2%>%
+  group_by(title_year)%>%
+  summarise(Mean = mean(gross, na.rm = T), Max = max(gross, na.rm = T), Min = min(gross, na.rm = T))
+
+#Remove NAs for plotting and manipulate data into an appropriate format.
+
+grouped_clean <- na.omit(grouped_gross)
+
+grouped_clean_long <- melt(grouped_clean, id = "title_year")
+
+ggplot(data = grouped_clean_long, aes(x = title_year, y = value, colour = variable)) + 
+  geom_line(size = 1, alpha = 0.5) +
+  scale_colour_manual(values = c("blue", "red", "yellow", "green")) +
+  ylab("Gross Earnings") +
+  xlab("") +
+  guides(colour = guide_legend(NULL)) +
+  ggtitle("Summary Statistics for Gross Earnings") +
+  theme(plot.title = element_text(size = 15, face = "bold"))
+
+
+```
+
+
+```{r, echo = T}
+
+#To just select a range within the total time period, the user can specify a start and end year.
+
+
+yearRange <- function() {
+  
+  start <- readline("Enter a start year: ")  
+  end <- readline("Enter an end year:")
+ 
+  start <- as.numeric(unlist(strsplit(start, ",")))
+  end <- as.numeric(unlist(strsplit(end, ",")))
+  
+  ggplot(data = grouped_clean_long, aes(x = title_year, y = value, colour = variable)) + 
+    geom_line(size = 1, alpha = 0.5) +
+    scale_colour_manual(values = c("blue", "red", "yellow", "green")) +
+    ylab("Gross movie earnings / $") +
+    xlab("") +
+    coord_cartesian(xlim = c(start, end)) +
+    guides(colour = guide_legend(NULL)) +
+    ggtitle("Summary Statistics for Gross Earnings") +
+    theme(plot.title = element_text(size = 15, face = "bold"))
+
+}
+
+```
+
+
+```{r, echo = T}
+##Part 3##
+
+#Subset the data into ratings categories (0 to < 1, 1 to < 2.......9 to 10) and compare mean gross earnings using a bar chart. We will continue to use the movies2 dataset which has been cleaned.
+
+summary(movies2$imdb_score)
+range(movies2$imdb_score)
+
+#Create category subsets.
+
+cat1 <- movies2%>%filter(imdb_score < 1)%>%select(gross)
+cat2 <- movies2%>%filter(imdb_score >= 1 & imdb_score < 2)%>%select(gross)
+cat3 <- movies2%>%filter(imdb_score >= 2 & imdb_score < 3)%>%select(gross)
+cat4 <- movies2%>%filter(imdb_score >= 3 & imdb_score < 4)%>%select(gross)
+cat5 <- movies2%>%filter(imdb_score >= 4 & imdb_score < 5)%>%select(gross)
+cat6 <- movies2%>%filter(imdb_score >= 5 & imdb_score < 6)%>%select(gross)
+cat7 <- movies2%>%filter(imdb_score >= 6 & imdb_score < 7)%>%select(gross)
+cat8 <- movies2%>%filter(imdb_score >= 7 & imdb_score < 8)%>%select(gross)
+cat9 <- movies2%>%filter(imdb_score >= 8 & imdb_score < 9)%>%select(gross)
+cat10 <- movies2%>%filter(imdb_score >= 9)%>%select(gross)
+
+#Enter into a list all of the gross earnings for the categories.
+
+cat_list <- list(cat1$gross, cat2$gross, cat3$gross, cat4$gross, cat5$gross, cat6$gross, cat7$gross, cat8$gross, cat9$gross, cat10$gross)
+str(cat_list)
+
+#Get the mean gross earnings for each category.
+
+cat_means <- sapply(cat_list, mean, na.rm = T)
+cat_sds <- sapply(cat_list, sd, na.rm = T)
+cat_means[1] <- 0
+cat_sds[1] <- 0
+
+#Prepare labels for categories.
+
+labels <- c("0 to < 1", "1 to < 2", "2 to < 3", "3 to < 4", "4 to < 5", "5 to < 6", "6 to < 7", "7 to < 8", "8 to < 9", "9 to 10")
+
+#Create new dataframe for use with ggplot.
+
+cat_stats_df <- data.frame(labels, cat_means, cat_sds)
+
+#The barplot of means looks as one would expect. Higher rated movies do better at the box office..
+
+ggplot(cat_stats_df, aes(x = labels, y = cat_means)) +
+  geom_bar(stat = "identity", fill = "lavender", colour = "black") +
+  xlab(" ") +
+  ylab("Average gross movie earnings / $") +
+  ggtitle("Average Gross Earnings by IMDB Score") +
+  geom_hline(yintercept = 0) +
+  theme(plot.title = element_text(size = 15, face = "bold"))
+
+
+#Plot the data with error bars showing the standard deviations. This plot gives a different view of the data and shows the huge amount of variation in the gross earnings.
+
+limits <- aes(ymax = cat_means + cat_sds, ymin = cat_means - cat_sds)
+
+ggplot(cat_stats_df, aes(x = labels, y = cat_means)) +
+  geom_bar(stat = "identity", fill = "lavender", colour = "black") +
+  xlab(" ") +
+  ylab("Average gross movie earnings / $") +
+  ggtitle("Average Gross Earnings by IMDB Score") +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(limits, width = 0.25) +
+  theme(plot.title = element_text(size = 15, face = "bold"))
+
+  
+```
+
+
+```{r, echo = T}
+
+##Part 4##
+
+#Create a new rankings table adjusted for ticket price inflation. Pull in the table from the BoxOffice Mojo website which gives estimated ticket prices by year.
+
+adjusted_web <- getURL("http://www.boxofficemojo.com/about/adjuster.htm")
+adjusted <- readHTMLTable(adjusted_web)
+
+adjusted_df <- adjusted[[5]]
+
+#Write to .csv file for cleaning in Libre Office / Excel.
+
+write.csv(adjusted_df, file = "adjusted.csv")
+
+#The prepared file can then be read in.
+
+adjusted_df <- read.csv("adjusted_tickets.csv")
+
+#Now we can merge the adjusted ticket prices to the corresponding years and analyse the data.
+
+adjusted_df2 <- merge(movies2, adjusted_df, by.x = "title_year", by.y = "Year")
+
+#Now create a new gross earnings column based on the adjusted ticket prices (based on 2016 estimate of $8.61). We are essentially making an estimate of the gross earnings for all movies relative to the 2016 average ticket price.
+
+adjusted_df2 <- adjusted_df2%>%
+  mutate(Adjusted_Gross = (gross / Avg..Price) * 8.61)
+
+top_adjusted <- adjusted_df2%>%
+  select(movie_title, director_name, Adjusted_Gross, gross)%>%
+  arrange(desc(Adjusted_Gross))
+
+#Create a visualisation for comparison to the earlier top 10 directors barplot.
+
+top10_adjusted <- top_adjusted[c(1:10), ]
+print(top10_adjusted)
+
+top10_adjusted$director_name <- factor(top10_adjusted$director_name)
+top10_adjusted$movie_title <- factor(top10_adjusted$movie_title)
+
+directors_adj <- c("Victor Fleming", "James Algar", "Norman Ferguson", "Steven Spielberg", "George Lucas", "Robert Wise", "James Cameron", "William Friedkin")
+
+ggplot(top10_adjusted, aes(x = director_name, y = Adjusted_Gross, fill = movie_title)) +
+  geom_bar(stat = "identity", colour = "black", alpha = 0.5) +
+  ylab("Adjusted gross movie earnings / $") +
+  xlab(" ") +
+  geom_hline(yintercept = 0) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_hue(name = "Movie") +
+  scale_x_discrete(limits = directors_adj) +
+  theme(plot.title = element_text(size = 15, face = "bold")) +
+  ggtitle("Top Grossing Directors (Adjusted)")
+
+
+```
+
+```{r, echo = T}
+
+##Part 5: Get average IMDB score for all movies within a specific genre.
+
+
+
+```
+
+  
+
+
+
+
