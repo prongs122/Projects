@@ -1,0 +1,284 @@
+---
+title: "Applied Predictive Modelling of Credit Risk using a Decision Tree method."
+author: "S.  Walsh"
+date: "11 November 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction, data import and required packages.
+
+This is an R Markdown document containing an in-depth analysis of the historical credit data provided. A predictive model has been built using training data and is used on a test set to determine model strengthe and accuracy. A major advantage of decision trees is that they are highly interpreatble and, therefore, will allow credit management to accurately assess each applicant.  All of the R code used in the analysis is contained in this report. 
+
+The mission objective is to assist the company in determining the credit risk of future loan applicants.
+
+Reference R.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(gmodels)
+library(partykit)
+
+setwd("~/Documents/DataScienceAnalytics")
+creditRisk.Train <- read.csv("CreditRisk.Train.csv")
+creditRisk.Test <- read.csv("CreditRisk.Test.csv")
+
+
+```
+
+## Let's start by taking a look at the structure of the dataframe and some summary statistics. Also, note the codes below for the Credit History and Employment categories. These codes are used throughout the analysis.
+
+## Credit History: All Paid = AP, Bank Paid = BP, Critical = CR, Current = CU, Delay = DL
+## Employment: Long = L, Medium = M, Retired = R, Short = S, Unemployed = U, Very Short = VS
+
+```{r, echo=TRUE}
+str(creditRisk.Train)
+summary(creditRisk.Train)
+summary(creditRisk.Train$Credit.Standing)
+
+creditRisk.Train%>%select(Job.Type,Employment)%>%filter(Employment=="U")%>%summarise(total=length(Employment))
+
+
+```
+
+## The summary reveals that the majority of customers are male (525) while females make up a smaller proportion (261). There are a number of NA values in this data set which are spread across four variables (Gender, Personal Status, Employment and Housing). We can deal with these NAs by either removing them, imputing values (modes for categorical data) or removing the entire variable if it is deemed unimportant for our purpose.
+
+## The response variable of interest is Credit Standing. A summary of this variable shows that a very large proportion of customers have Bad credit standing (47%). This dataset is, therefore, suitable for the construction of a predictive model as there is a large amount of Bad credit standing observations, and their associated variable values, to train with. No undersampling or oversampling of the training data is required. 
+
+
+##------Discrepancies-----##
+
+##There is a discrepancy between unemployed values in the Employment and Job Type variables (44 vs 20). This might have indicated some data quality issues but it turns out that the difference in the unemployed entries between Job Type and Employed variables is due to how customers have been classified in the Job Type variable. Unemployed is entered as a job type in some observations which then match a corresponding unemployed value in the Employment variable. On the other hand, some Job Type classifications are of customer's actual job category but as they are classified as unemployed in the Unemployed variable, the Unemployed status does not match the Job Type status. For the analysis then, it is assumed that the number of actual unemployed customers is indicated by the value of 44 given in the Employment variable.
+
+## No checking account/checking account age discrepancy? There are 276 observations where customers had no checking account yet each of these observations has an associated account age (months since opened). Have the accounts been closed recently? Or are these data erroneous? 276 observations is a lot to omit from the training data if so. As a result of this issue, two models have been built, one using the training data with NAs removed and one using the training data with NAs and these 276 possible erroneous observations removed.
+
+```{r, echo=TRUE}
+erroneous <- creditRisk.Train%>%
+  select(Checking.Acct,Months.since.Checking.Acct.opened)%>%
+  group_by(Checking.Acct,Months.since.Checking.Acct.opened)%>%
+  summarise(Total=n())%>%
+  filter(Checking.Acct=="No Acct")
+
+erroneous%>%summarise(TotalN = sum(Total))
+print(erroneous)
+
+#The filtered table displays the null accounts with associated account ages.
+```
+
+
+## Let's first investigate whether the Gender, Personal Status, Employment and Housing variables have an influence on customer credit standing. Barplots can be used to visually assess the Credit Standing categories with each of these variables represented as proportions in the bars. Note that these plots have been created using the training data with just NAs removed. The possible erroneous data are included.
+
+```{r, echo=TRUE}
+ggplot(na.omit(creditRisk.Train),aes(x=Credit.Standing,fill=Gender)) +
+  geom_bar(colour="black") +
+  scale_fill_manual(name = "Gender",labels = c("Female","Male"),values = c("lavender","lightblue2")) +
+  xlab("Credit Standing") +
+  ylab("Count") +
+  geom_hline(yintercept = 0)
+
+## The within category ratio of male to female customers (Bad = 1.8, Good = 2.03, Very Good = 2.86) does not vary much from the overall ratio of 2.0. 
+
+ggplot(na.omit(creditRisk.Train),aes(x=Credit.Standing,fill=Personal.Status)) +
+  geom_bar(colour="black") +
+  xlab("Credit Standing") +
+  ylab("Count")
+
+## The ratio of single to divorced customers (Bad = 1.29, Good = 1.66, Very Good = 2.8) reveals that the proportion of single customers increases dramatically in the Very Good category. Single customers make up 70.3% of the observations in the Very Good category whereas in the Good and Bad categories the proportions are 55.4% and 51.5%, respectively.
+
+ggplot(na.omit(creditRisk.Train),aes(x=Credit.Standing,fill=Housing)) +
+  geom_bar(colour="black") +
+  xlab("Credit Standing") +
+  ylab("Count")
+
+creditRisk.Train%>%select(Credit.Standing,Housing)%>%group_by(Credit.Standing,Housing)%>%summarise(total = n())
+
+## The Housing data show no apparent relationship with Credit Standing. However, homeowners make up the vast majority (67%) of customers in this dataset. 
+
+ggplot(na.omit(creditRisk.Train),aes(x=Credit.Standing,fill=Employment)) +
+  geom_bar(colour="black") +
+  xlab("Credit Standing") +
+  ylab("Count")
+
+## The Employment data show a trend where the proportion of customers in long-term employment increases as credit standing improves while the proportion of customers who are employed short-term decreases as credit standing improves. Short-term employment customers make up 40% of the Bad category in Credit Standing while long-term employment customers make up 20%. In the Very Good category, however, 28% of customers were in short-term employment while 46% were in long-term employment.
+
+ggplot(na.omit(creditRisk.Train),aes(x=Employment,fill=Credit.History)) +
+  facet_wrap(~Credit.Standing) +
+  geom_bar(colour="black") +
+  xlab("Employment") +
+  ylab("Count") +
+  ggtitle("Employment Status Distribution by Credit Standing")
+
+## A lot of information can be extracted from this plot. Not only does it show the trend in credit standing with employment type, it also shows us that only customers with AP and CU credit history were classified as very good applicants. An applicant's credit history, then, is likely to be the best first question to ask when partitioning the data in a decision tree model.
+```
+
+## The housing variable does not appear to have a major effect on credit standing. Neither does gender. We can remove these variables entirely from the decision tree building process based on these assumptions. The personal status variable reveals that the proportion of single customers increases dramatically in the Very Good credit standing category. Does this mean that it is more likely that single customers will obtain Very Good credit standing? We should leave this variable in the decision tree construction process as it may contain useful information.
+
+## Investigating the employment variable reveals a trend in employment type and credit standing. The mode of the Bad category is Short-term employment. The mode of the Good category is Medium-term employment. The mode of the Very Good category is Long-term employment. This pattern tells us that people in long-term employment appear more likely to have very good credit standing. However, it must be noted that there are quite a few past customers in long-term employment who were classified as Bad and Good (Figure Facet.)
+
+## Let's now remove the Housing and Gender variables from the data set. What about the NAs for Employment and Personal Status? The mode of Employment is Short-term (S) and the mode of Personal Status is Single. We can impute these mode values in the place of NAs to create a complete data set of the selected variables or we can simply remove rows of the data set containing NAs whicj is what has been done here. We can also remove the ID and Telephone avriables as these are unlikely to be important factors in determining credit standing. After all of this, we still have 754 observations to work with in our training set (including erroneous data?).
+
+```{r, echo=TRUE}
+creditRisk.TrainMod <- select(creditRisk.Train,-Housing,-Gender,-ID,-Telephone)
+creditRisk.TrainMod <- na.omit(creditRisk.TrainMod)
+
+summary(creditRisk.TrainMod)
+which(is.na(creditRisk.TrainMod))  #Check that all NAs have been removed.
+```
+
+## There is a concept known as "informative missingness" where NA patterns may provide useful information. For example, the Napoleon Dynamite Effect.This does not appear to be the case in this dataset so their removal is justified.
+
+## We can now investigate further by looking at the distribution of customers by employment type.
+
+
+```{r, echo=TRUE}
+employment <- c("S","L","M","VS","U","R")
+
+ggplot(creditRisk.TrainMod,aes(x=Employment)) +
+  geom_bar(fill="lightblue",colour="black") +
+  scale_x_discrete(limits=employment) +
+  ylab("Count")
+
+## Most of this company's customers are/have been people in short-term employment. Now, we know from earlier that the mode of the Bad credit standing category is S and that there appears to be a relationship between employment type and credit standing. Future loan acceptance strategies might then look at the length of current employment as a possible indicator of future credit standing.
+
+```
+
+## Next, we will look at the age distribution of customers and some summary statistics. The distribution has a positive skew and is slightly long-tailed due to some extreme values.
+
+## The mean age is 34.6 years while the median is 32.0 years. As these data are non-parametric, the median is a better statistic to use. We also see that the standard deviation is 11.3 years. Before moving on to investigate outliers, what are the major reasons for these customers taking out a loan?
+
+
+```{r, echo=TRUE}
+summary(creditRisk.TrainMod$Age.less.1.from.original.Age.variable)
+IQR(creditRisk.TrainMod$Age.less.1.from.original.Age.variable)
+
+ggplot(creditRisk.TrainMod,aes(x=Age.less.1.from.original.Age.variable)) +
+  geom_histogram(bins=15,fill="lightblue",colour="black") +
+  scale_x_continuous(breaks=seq(15,90,5)) +
+  xlab("Age minus 1")+
+  ylab("Count")
+
+sd(creditRisk.TrainMod$Age.less.1.from.original.Age.variable)
+var(creditRisk.TrainMod$Age.less.1.from.original.Age.variable)
+sqrt(128.2613)
+
+```
+
+## From this next bar plot, we see that the majority of loans are for small appliances, new cars and furniture. The scatterplot is used to investigate any outliers. If the suspected outliers are greater than Q3 + (1.5*IQR), then it is a rule of thumb to remove them if desired. In this case, however, it appears that one extreme observation is simply an ederly female (86) who has taken out a loan. It makes no sense to remove this observation as an error but we can say that it is uncommon to see anyone of this age as a loan applicant. Additional details associated with this observation are given which show that this person has a healthy bank balance and a good loan repayment history.
+
+```{r, echo=TRUE}
+summary(creditRisk.TrainMod$Loan.Reason)
+
+reasons <- c("Car New","Small Appliance","Furniture","Business","Car Used","Education","Repairs","Other","Large Appliance","Retraining")
+
+ggplot(creditRisk.TrainMod,aes(x=Loan.Reason)) +
+  geom_bar(fill="lightblue2",colour="black") +
+  scale_x_discrete(limits=reasons) +
+  xlab("Loan Reason") +
+  ylab("Count") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+ggplot(creditRisk.TrainMod,aes(x=Age.less.1.from.original.Age.variable,y=Months.since.Checking.Acct.opened))+
+  geom_jitter(alpha=1/2,colour="purple")+
+  scale_x_continuous(breaks=seq(10,90,10)) +
+  xlab("Age minus 1") +
+  ylab("Checking Account Age / mnths")
+
+outlier <- filter(creditRisk.TrainMod,Age.less.1.from.original.Age.variable>=85.0)
+print(outlier)
+```
+
+## Discoveries so far:
+
+# The median age of loan applicant is 32.0 years.
+# The strongest predictor of very good credit standing appears to be an all paid loan (credit history).
+# The vast majority of very good customers are single. Gender is irrelevant.
+# There is a trend where credit standing improves with increased employment duration. Long-term employment appears to be somewhat related to Very Good credit standing.
+# There appears to be some data quality/ambiguity issues with observations where checking account status is No Account and the same account has an account age.
+
+## Let's now build a decision tree model to assist management in assessing loan risk for future applicants. As a reminder, the categories within the Credit History and Employment variables are coded as follows:
+
+## Credit History: All Paid = AP, Bank Paid = BP, Critical = CR, Current = CU, Delay = DL
+## Employment: Long = L, Medium = M, Retired = R, Short = S, Unemployed = U, Very Short = VS
+
+```{r, echo=TRUE}
+#Using partykit() package. This version is the best. Data used is the traininig set with NAs removed.
+
+treeA <- ctree(Credit.Standing ~.,data=creditRisk.TrainMod)
+print(treeA)
+class(treeA)
+plot(treeA)
+
+#Look at the rules for classification.
+partykit:::.list.rules.party(treeA)
+
+#Use the model for prediction on the test set.
+predictions <-predict(treeA,newdata = creditRisk.Test)
+print(predictions)
+```
+
+## Testing the model on unseen data is all well and good. However, we do not know the true Credit Standing of these customers. A good technique is to split the training data using a ratio of 3:4 training to test data. That way, we can see how well our model performs on known outcomes. We now need to rebuild the model using the new training data set. Note that the NAs are still omitted but the possible erroneous data are still included.
+
+```{r, echo=TRUE}
+set.seed(10)
+newTrainIndex <- sample(1:nrow(creditRisk.TrainMod),0.75*nrow(creditRisk.TrainMod))
+newTrain <- creditRisk.TrainMod[newTrainIndex,] 
+newTest <- creditRisk.TrainMod[-newTrainIndex,]
+
+treeB <- ctree(Credit.Standing~.,data=newTrain)
+plot(treeB)
+print(treeB)
+
+predictionsNew <- predict(treeB,newdata = newTest)
+print(head(predictionsNew))
+
+#Assess model accuracy.
+
+confMatrix <- table(newTest$Credit.Standing,predictionsNew)
+print(confMatrix)
+
+#The model treeB has a prediction accuracy of 64%.
+
+#Use treeB model on original test data.
+
+predictions2 <- predict(treeB,newdata = creditRisk.Test)
+print(predictions2)
+
+#Convert factors to numeric to plot observed and predicted outcomes against each other.
+
+df <- data.frame(as.numeric(predictionsNew),as.numeric(newTest$Credit.Standing))
+names(df) <- c("Predicted","Actual")
+
+ggplot(df,aes(x=Actual,y=Predicted)) +
+  geom_jitter(alpha=1/2) +
+  stat_smooth(method="lm",formula=y~x,fill=NA,colour="black") +
+  annotate("text",x=1.5,y=2.9,label="R2 = 0.40") +
+  annotate("text",x=1.5,y=3.2,label="R = 0.63") +
+  scale_x_continuous(breaks=seq(c(1,2,3)))
+
+  
+
+#Linear regression model.
+
+lm <- lm(Predicted ~ Actual,df)
+summary(lm)
+
+
+```
+
+## There is a suspicion of a sequence of bad credit standing classifications in the dataset. Can it be detected? The logical starting point would be to subset the training set into observations that have a Bad credit standing and All Paid credit history. From earlier, we know that the strongest predictor of Very Good credit standing is a credit history AP (All Paid). It seems a bit odd that this filtering would produce any results, yet it does. 12 customers are returned. This sequence could possibly be the erroneous data that Brenda is referring to.
+
+```{r, echo=TRUE}
+creditRisk.Train%>%group_by(Credit.Standing,Credit.History)%>%summarise(Total=n())
+
+errorSequence <- creditRisk.Train%>%filter(Credit.Standing=="Bad",Credit.History=="AP")
+
+```
+
+## The information gain algorithm.
+
+
+
