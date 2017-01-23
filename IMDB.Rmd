@@ -15,7 +15,6 @@ library(stringr)
 library(RCurl)
 library(XML)
 
-setwd("~/Documents/Portfolio")
 
 movies <- read.csv("movie_metadata.csv", header = T, stringsAsFactors = F)
 movies <- movies[,-29]
@@ -281,13 +280,6 @@ ggplot(top10_adjusted, aes(x = director_name, y = Adjusted_Gross, fill = movie_t
 
 ```
 
-```{r, echo = T}
-
-##Part 5: Get average IMDB score for all movies within a specific genre.
-
-
-
-```
 
   
 
